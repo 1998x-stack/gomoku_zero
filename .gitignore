@@ -1,0 +1,6 @@
+checkpoints/*
+__pycache__/*
+*/__pycache__/*
+*/*/__pycache__/*
+gomoku_zero.egg-info/*
+runs/*
