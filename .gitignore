@@ -1,6 +1,28 @@
-checkpoints/*
-__pycache__/*
-*/__pycache__/*
-*/*/__pycache__/*
-gomoku_zero.egg-info/*
-runs/*
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# ---- 测试/工具缓存 ----
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# ---- 本项目的运行时产物 ----
+checkpoints/
+runs/
+data/
+game_*.npz
+
+# ---- OS ----
+.DS_Store
+
+# ---- 虚拟环境 ----
+venv/
+.venv/
