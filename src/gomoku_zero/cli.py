@@ -4,10 +4,11 @@ from loguru import logger
 from .config import Cfg, default_cfg_path
 from .utils import set_seed, device, ensure_dir
 from .replay import ReplayBuffer
+from .dataio import save_game, load_playouts
 from .net import PolicyValueNet
 from .selfplay import selfplay_many
 from .train import train_loop
-from .evaluate import evaluate_models
+from .evaluate import evaluate_models, gate_and_promote
 from .serialization import save_checkpoint, load_checkpoint
 
 def load_cfg(cfg_path: str | None) -> Cfg:
@@ -29,20 +30,16 @@ def cmd_selfplay(args):
         load_checkpoint(best_ckpt, net)
         logger.info(f"Loaded best model: {best_ckpt}")
 
-    rb = ReplayBuffer(cfg.replay.capacity_steps, cfg.env.board_size)
-    total = 0
+    data_dir = args.data_dir or cfg.data.selfplay_dir
+    ensure_dir(data_dir)
+
+    total = games_saved = 0
     for s, p, z, w in selfplay_many(net, cfg.mcts, cfg.env.board_size, dev, games=args.games):
-        # 将整局样本按每步 z_t 已就位（在 selfplay 里）
-        # 这里按对称增强策略，我们聚合每步同一个 z_t：胜方=+1，负方=-1，和=0
-        # 注意：V1 简化——同一局所有步用相同 z（按当步落子方视角已处理）
-        # 若你更偏向 AlphaZero 原义（每步 z 为最终结果从该步“当前玩家”视角），当前实现已满足。
-        uniq_z = set([float(x) for x in z])
-        assert all(v in (-1.0, 0.0, 1.0) for v in uniq_z)
-        # 写入经验池
-        for t in range(len(s)):
-            rb.add_game([s[t]], [p[t]], z[t])
-            total += 1
-    logger.info(f"[SelfPlay] collected steps = {total}")
+        # 每局落盘（未增强；D4 增强在训练加载进经验池时再算，省 8 倍空间）
+        save_game(data_dir, s, p, z)
+        games_saved += 1
+        total += len(s)
+    logger.info(f"[SelfPlay] saved {games_saved} games / {total} steps -> {data_dir}")
 
 def cmd_train(args):
     cfg = load_cfg(args.cfg)
@@ -56,21 +53,37 @@ def cmd_train(args):
         load_checkpoint(best_ckpt, net)
         logger.info(f"Loaded best model: {best_ckpt}")
 
-    # 这里用一个简单的“预热随机数据”避免经验池为空（实战请先跑 selfplay）
     rb = ReplayBuffer(cfg.replay.capacity_steps, cfg.env.board_size)
-    n = cfg.env.board_size * cfg.env.board_size
-    for _ in range(max(1024, cfg.replay.batch_size * 4)):
-        s = np.zeros((3, cfg.env.board_size, cfg.env.board_size), dtype=np.float32)
-        pi = np.ones((n,), dtype=np.float32) / n
-        z = float(np.random.choice([-1, 0, 1]))
-        rb.add_game([s], [pi], z)
+    data_dir = args.data_dir or cfg.data.selfplay_dir
+
+    # 从 self-play 落盘数据真实恢复经验池（正确的数据流）
+    loaded_games = loaded_steps = 0
+    for s, p, z in load_playouts(data_dir):
+        rb.add_games(s, p, z)
+        loaded_games += 1
+        loaded_steps += len(z)
+
+    if loaded_games == 0:
+        # 兜底：无自对弈数据时给出警告，用随机数据热身（训练无意义，先跑 selfplay）
+        logger.warning(
+            f"no self-play data in '{data_dir}'! Seeding dummy random data. "
+            f"Run `python -m gomoku_zero.cli selfplay` first."
+        )
+        n = cfg.env.board_size * cfg.env.board_size
+        for _ in range(max(1024, cfg.replay.batch_size * 4)):
+            s = np.zeros((3, cfg.env.board_size, cfg.env.board_size), dtype=np.float32)
+            pi = np.ones((n,), dtype=np.float32) / n
+            z = float(np.random.choice([-1, 0, 1]))
+            rb.add_game([s], [pi], z)
+    else:
+        logger.info(f"[Train] loaded {loaded_games} games / {loaded_steps} steps from '{data_dir}'")
 
     steps = args.steps or cfg.train.steps
     train_loop(cfg, rb, cfg.env.board_size, net, steps, cfg.train.logdir)
 
     # 存 candidate
     ensure_dir("checkpoints")
-    meta = dict(time=time.time(), steps=steps)
+    meta = dict(time=time.time(), steps=steps, data_games=loaded_games, data_steps=loaded_steps)
     save_checkpoint("checkpoints/candidate.pt", net, meta)
     logger.info("Saved candidate checkpoint.")
 
@@ -86,11 +99,9 @@ def cmd_evaluate(args):
 
     wr = evaluate_models(best, cand, cfg.mcts, cfg.env.board_size, dev, games=args.games or cfg.eval.games)
     thr = args.threshold or cfg.eval.threshold
-    if wr >= thr:
-        logger.info(f"[Gate] Candidate promoted to best (wr={wr:.3f} >= {thr:.2f})")
-        save_checkpoint("checkpoints/best.pt", cand, dict(win_rate=wr))
-    else:
-        logger.info(f"[Gate] Candidate rejected (wr={wr:.3f} < {thr:.2f})")
+    gate_and_promote(
+        "checkpoints/best.pt", "checkpoints/candidate.pt", cand, wr, thr
+    )
 
 def main():
     p = argparse.ArgumentParser("gomoku-zero")
@@ -99,11 +110,13 @@ def main():
     sp = sub.add_parser("selfplay")
     sp.add_argument("--cfg", type=str, default=None)
     sp.add_argument("--games", type=int, default=50)
+    sp.add_argument("--data-dir", type=str, default=None, help="自对弈数据落盘目录")
     sp.set_defaults(func=cmd_selfplay)
 
     tr = sub.add_parser("train")
     tr.add_argument("--cfg", type=str, default=None)
     tr.add_argument("--steps", type=int, default=None)
+    tr.add_argument("--data-dir", type=str, default=None, help="从该目录恢复经验池")
     tr.set_defaults(func=cmd_train)
 
     ev = sub.add_parser("evaluate")

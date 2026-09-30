@@ -1,4 +1,4 @@
 __all__ = [
     "config", "utils", "game", "net", "mcts",
-    "replay", "selfplay", "train", "evaluate", "serialization", "cli"
+    "replay", "selfplay", "train", "evaluate", "serialization", "dataio", "cli"
 ]

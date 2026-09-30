@@ -20,6 +20,9 @@ replay:
   capacity_steps: 800000
   batch_size: 256
 
+data:
+  selfplay_dir: data/selfplay
+
 opt:
   lr: 0.002
   weight_decay: 0.0001

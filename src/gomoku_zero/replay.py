@@ -40,6 +40,11 @@ class ReplayBuffer:
                     self.states.popleft(); self.pis.popleft(); self.zs.popleft()
                     self.size_steps -= 1
 
+    def add_games(self, states: np.ndarray, pis: np.ndarray, zs: np.ndarray):
+        """逐手写入一局的数组数据（states (T,3,N,N), pis (T,N*N), zs (T,)）。"""
+        for t in range(len(zs)):
+            self.add_game([states[t]], [pis[t]], float(zs[t]))
+
     def sample(self, batch: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         idx = np.random.randint(0, len(self.states), size=batch)
         s = np.stack([self.states[i] for i in idx], axis=0)

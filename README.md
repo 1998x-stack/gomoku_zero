@@ -87,26 +87,29 @@ gomoku-zero/
 
 ## 6) Quickstart
 
-Self-play to collect data:
+Self-play 收集数据并**落盘**（未增强的 (s, π, z) 每局一个 npz）：
 
 ```bash
 python -m gomoku_zero.cli selfplay --games 50
+# => 写入 data/selfplay/game_*.npz（路径可用 --data-dir 或 configs 里 data.selfplay_dir 覆盖）
 ```
 
-Train from the replay buffer (V1 seeds the buffer with dummy data if empty):
+Train 从落盘数据**真实恢复经验池**（D4 增强在加载时展开）并在其上训练：
 
 ```bash
 python -m gomoku_zero.cli train --steps 2000
+# => 从 data/selfplay 加载真实数据训练；若目录为空会警告并退回随机热身（无意义，先跑 selfplay）
 ```
 
-Evaluate and gate (promote candidate → best if win-rate ≥ threshold):
+评估并门禁（候选 vs 最强 **双网络对弈**，wr ≥ threshold 才晋升 best）：
 
 ```bash
 python -m gomoku_zero.cli evaluate --games 200 --threshold 0.55
 ```
 
-> Checkpoints are written to `checkpoints/` as `best.pt` and `candidate.pt`.
-> TensorBoard logs under `runs/gomoku_zero` (configurable).
+> Checkpoints 写入 `checkpoints/` 作为 `best.pt` / `candidate.pt`。
+> TensorBoard 日志在 `runs/gomoku_zero`（可用 configs 覆盖）。
+> 数据也可用 `--data-dir <dir>` 显式指定，便于多轮 selfplay 增量追加。
 
 ---
 

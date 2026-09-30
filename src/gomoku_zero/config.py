@@ -32,6 +32,11 @@ class ReplayCfg:
     batch_size: int = 256
 
 @dataclass
+class DataCfg:
+    # self-play 数据落盘目录（train 会从此读写并恢复经验池）
+    selfplay_dir: str = "data/selfplay"
+
+@dataclass
 class OptCfg:
     lr: float = 2e-3
     weight_decay: float = 1e-4
@@ -54,6 +59,7 @@ class Cfg:
     net: NetCfg = field(default_factory=NetCfg)
     mcts: MctsCfg = field(default_factory=MctsCfg)
     replay: ReplayCfg = field(default_factory=ReplayCfg)
+    data: DataCfg = field(default_factory=DataCfg)
     opt: OptCfg = field(default_factory=OptCfg)
     train: TrainCfg = field(default_factory=TrainCfg)
     eval: EvalCfg = field(default_factory=EvalCfg)
@@ -74,6 +80,7 @@ class Cfg:
             net=build(data.get("net"), NetCfg),
             mcts=build(data.get("mcts"), MctsCfg),
             replay=build(data.get("replay"), ReplayCfg),
+            data=build(data.get("data"), DataCfg),
             opt=build(data.get("opt"), OptCfg),
             train=build(data.get("train"), TrainCfg),
             eval=build(data.get("eval"), EvalCfg),
