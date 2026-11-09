@@ -40,8 +40,13 @@ class GameState:
         return self.winner != 0
 
     def step(self, a: int) -> "GameState":
-        x, y = divmod(a, self.n)
-        assert self.board[x, y] == 0
+        if self.is_terminal():
+            raise RuntimeError("game is terminal; construct a new GameState")
+        if not isinstance(a, (int, np.integer)) or not 0 <= int(a) < self.n * self.n:
+            raise ValueError("action out of bounds")
+        x, y = divmod(int(a), self.n)
+        if self.board[x, y] != 0:
+            raise ValueError("cell is already occupied")
         color = self.to_play
         self.board[x, y] = color
         self.moves += 1

@@ -223,3 +223,15 @@ MIT License. See `LICENSE`.
 
 * Silver et al., *Mastering the game of Go without human knowledge*, Nature (2017).
 * AlphaGo Zero / AlphaZero training paradigms adapted for **Exact-5 Gomoku**.
+## P2 · 规则环境交叉契约（2026-11-09）
+
+新增轻量规则 CI：只安装 NumPy、Gymnasium、pytest 与**固定提交**的
+[gomoku-exact5-env](https://github.com/1998x-stack/gomoku-exact5-env)，
+不用下载 PyTorch/GPU 模型也能核对双方棋盘、动作掩码、胜负及**终局后禁止继续落子**。
+`GameState.step` 现在对越界/重复手使用明确的 `ValueError`，对终局后动作使用 `RuntimeError`。该流程是规则契约验证，**并非完成自对弈、训练或模型性能验收**。
+
+本地运行规则快测（先安装上游 Exact-5 环境包）：
+
+```bash
+PYTHONPATH=src python -m pytest -q tests/unit/test_game.py tests/integration/test_game_env_consistency.py tests/integration/test_exact5_terminal_contract.py
+```

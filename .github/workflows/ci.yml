@@ -1,0 +1,23 @@
+name: Gomoku Zero exact-five contract gate
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  rules-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install core-only test dependencies and pinned Exact-5 rules
+        run: |
+          python -m pip install "numpy>=1.23" "gymnasium>=0.29" "pytest>=7"
+          python -m pip install "git+https://github.com/1998x-stack/gomoku-exact5-env.git@b390b3c3077362ad103d4135413b0796039cd34b"
+      - name: Check GameState against real Gymnasium rule environment
+        env:
+          PYTHONPATH: src
+        run: python -m pytest -q tests/unit/test_game.py tests/integration/test_game_env_consistency.py tests/integration/test_exact5_terminal_contract.py
