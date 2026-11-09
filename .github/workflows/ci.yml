@@ -17,7 +17,7 @@ jobs:
         run: |
           python -m pip install "numpy>=1.23" "gymnasium>=0.29" "pytest>=7"
           python -m pip install "git+https://github.com/1998x-stack/gomoku-exact5-env.git@b390b3c3077362ad103d4135413b0796039cd34b"
-      - name: Check GameState against real Gymnasium rule environment
+      - name: Check GameState and Gymnasium contract without training dependencies
         env:
           PYTHONPATH: src
-        run: python -m pytest -q tests/unit/test_game.py tests/integration/test_game_env_consistency.py tests/integration/test_exact5_terminal_contract.py
+        run: python scripts/check_exact5_contract.py

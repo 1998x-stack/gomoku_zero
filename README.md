@@ -235,3 +235,5 @@ MIT License. See `LICENSE`.
 ```bash
 PYTHONPATH=src python -m pytest -q tests/unit/test_game.py tests/integration/test_game_env_consistency.py tests/integration/test_exact5_terminal_contract.py
 ```
+
+**轻量 CI 补充：** 本仓库的 `tests/conftest.py` 会导入训练所需的 PyTorch。为避免仅验证规则时耗费 GPU/深度学习依赖，GitHub Actions 专用 `scripts/check_exact5_contract.py` 用 Python 标准 `unittest`、NumPy 和 Gymnasium 测试同一规则契约（包括固定随机对局和终局保护）。完整 `pytest` 流水线仍需按训练依赖安装。
